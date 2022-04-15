@@ -12,6 +12,7 @@ application {
 }
 
 dependencies {
+    implementation("dev.inmo:krontab:0.7.1")
     implementation(project(":pleo-antaeus-data"))
     implementation(project(":pleo-antaeus-rest"))
     implementation(project(":pleo-antaeus-core"))
