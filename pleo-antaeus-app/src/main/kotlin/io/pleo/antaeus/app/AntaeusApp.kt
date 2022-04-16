@@ -17,6 +17,8 @@ import io.pleo.antaeus.data.AntaeusDal
 import io.pleo.antaeus.data.CustomerTable
 import io.pleo.antaeus.data.InvoiceTable
 import io.pleo.antaeus.rest.AntaeusRest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
@@ -78,17 +80,18 @@ fun main() {
         launch {
             billingService.init(kronScheduler)
         }
+        println("asdasdasdads")
+        // Create REST web service
+        AntaeusRest(
+            invoiceService = invoiceService,
+            customerService = customerService
+        ).run()
+
     }
-    // Create REST web service
-    AntaeusRest(
-        invoiceService = invoiceService,
-        customerService = customerService
-    ).run()
 }
 
 private fun getScheduler(): KronScheduler {
-    val productionStandEnv = System.getenv("PRODUCTION_STAND")
-    val isProduction = productionStandEnv.isNotEmpty() && productionStandEnv.toBoolean()
+    val isProduction = System.getenv("PRODUCTION_STAND")?.toBoolean() ?: false
     return if (isProduction) {
         buildSchedule {
             months {
