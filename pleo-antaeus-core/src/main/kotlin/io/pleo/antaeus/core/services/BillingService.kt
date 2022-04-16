@@ -8,6 +8,9 @@ import io.pleo.antaeus.core.exceptions.NetworkException
 import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 class BillingService(
     private val paymentProvider: PaymentProvider,
@@ -18,9 +21,13 @@ class BillingService(
     private val failedInvoices: ArrayList<Invoice> = ArrayList()
 
     suspend fun init(scheduler: KronScheduler) {
-        scheduler.doWhile {
-            chargePayments()
-            true // true - repeat on next time
+        coroutineScope {
+            launch {
+                scheduler.doWhile {
+                    chargePayments()
+                    true // true - repeat on next time
+                }
+            }
         }
     }
 
@@ -33,21 +40,9 @@ class BillingService(
         try {
             val result = paymentProvider.charge(invoice)
             if (result) {
-                val paidInvoice = Invoice(
-                    id = invoice.id,
-                    customerId = invoice.customerId,
-                    amount = invoice.amount,
-                    status = InvoiceStatus.PAID
-                )
+                val paidInvoice = invoice.copy(status = InvoiceStatus.PAID)
                 invoiceService.updateInvoice(paidInvoice)
             } else {
-                val paidInvoice = Invoice(
-                    id = invoice.id,
-                    customerId = invoice.customerId,
-                    amount = invoice.amount,
-                    status = InvoiceStatus.PENDING
-                )
-                invoiceService.updateInvoice(paidInvoice)
                 failedInvoices.add(invoice)
             }
         } catch (customerNotFoundException: CustomerNotFoundException) {
@@ -58,4 +53,6 @@ class BillingService(
             failedInvoices.add(invoice)
         }
     }
+
+
 }

@@ -18,6 +18,6 @@ class InvoiceService(private val dal: AntaeusDal) {
     }
 
     fun updateInvoice(paidInvoice: Invoice) {
-        TODO("Not yet implemented")
+        dal.updateInvoice(paidInvoice)
     }
 }
