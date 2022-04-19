@@ -10,6 +10,8 @@ package io.pleo.antaeus.app
 import dev.inmo.krontab.KronScheduler
 import dev.inmo.krontab.builder.buildSchedule
 import getPaymentProvider
+import getSchedulerConfiguration
+import io.pleo.antaeus.core.SchedulerConfiguration
 import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
@@ -74,35 +76,16 @@ fun main() {
         customerService = customerService
     )
 
-    val kronScheduler = getScheduler()
+    val kronScheduler = getSchedulerConfiguration()
 
     runBlocking {
         launch {
             billingService.init(kronScheduler)
         }
-        println("asdasdasdads")
         // Create REST web service
         AntaeusRest(
             invoiceService = invoiceService,
             customerService = customerService
         ).run()
-
-    }
-}
-
-private fun getScheduler(): KronScheduler {
-    val isProduction = System.getenv("PRODUCTION_STAND")?.toBoolean() ?: false
-    return if (isProduction) {
-        buildSchedule {
-            months {
-                0 every 1
-            }
-        }
-    } else {
-        buildSchedule {
-            seconds {
-                0 every 5
-            }
-        }
     }
 }

@@ -1,4 +1,6 @@
 
+import dev.inmo.krontab.builder.buildSchedule
+import io.pleo.antaeus.core.SchedulerConfiguration
 import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.data.AntaeusDal
 import io.pleo.antaeus.models.Currency
@@ -36,5 +38,25 @@ internal fun getPaymentProvider(): PaymentProvider {
         override fun charge(invoice: Invoice): Boolean {
                 return Random.nextBoolean()
         }
+    }
+}
+
+
+internal fun getSchedulerConfiguration(): SchedulerConfiguration{
+    val isProduction = System.getenv("PRODUCTION_STAND")?.toBoolean() ?: false
+    return if (isProduction) {
+        val paymentScheduler = buildSchedule {
+            months {
+                0 every 1
+            }
+        }
+        SchedulerConfiguration(paymentScheduler, paymentScheduler, paymentScheduler)
+    } else {
+        val paymentScheduler = buildSchedule {
+            seconds {
+                0 every 5
+            }
+        }
+        SchedulerConfiguration(paymentScheduler, paymentScheduler, paymentScheduler)
     }
 }

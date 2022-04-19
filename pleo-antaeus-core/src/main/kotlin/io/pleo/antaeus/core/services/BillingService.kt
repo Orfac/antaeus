@@ -1,14 +1,13 @@
 package io.pleo.antaeus.core.services
 
-import dev.inmo.krontab.KronScheduler
 import dev.inmo.krontab.doWhile
+import io.pleo.antaeus.core.SchedulerConfiguration
 import io.pleo.antaeus.core.exceptions.CurrencyMismatchException
 import io.pleo.antaeus.core.exceptions.CustomerNotFoundException
 import io.pleo.antaeus.core.exceptions.NetworkException
 import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -18,22 +17,36 @@ class BillingService(
     private val customerService: CustomerService
 ) {
 
-    private val failedInvoices: ArrayList<Invoice> = ArrayList()
+    private val failedTransactionInvoices: ArrayList<Invoice> = ArrayList()
+    private val failedNetworkInvoices: ArrayList<Invoice> = ArrayList()
 
-    suspend fun init(scheduler: KronScheduler) {
+    suspend fun init(schedulerConfiguration: SchedulerConfiguration) {
+        val (paymentScheduler, networkFailuresHandler, transactionFailuresHandler) = schedulerConfiguration
         coroutineScope {
             launch {
-                scheduler.doWhile {
+                paymentScheduler.doWhile {
                     chargePayments()
+                    true // true - repeat on next time
+                }
+                networkFailuresHandler.doWhile {
+                    chargePayments(failedNetworkInvoices)
+                    true // true - repeat on next time
+                }
+                transactionFailuresHandler.doWhile {
+                    chargePayments(failedTransactionInvoices)
                     true // true - repeat on next time
                 }
             }
         }
     }
 
-    private fun chargePayments() {
-        val invoices = invoiceService.fetchAll();
-        invoices.forEach { processInvoice(it) }
+    private fun chargePayments(invoices: List<Invoice> = arrayListOf()) {
+        if (invoices.isEmpty()) {
+            val invoicesNew = invoiceService.fetchAll()
+            invoicesNew.forEach { processInvoice(it) }
+        } else {
+            invoices.forEach { processInvoice(it) }
+        }
     }
 
     private fun processInvoice(invoice: Invoice) {
@@ -43,14 +56,14 @@ class BillingService(
                 val paidInvoice = invoice.copy(status = InvoiceStatus.PAID)
                 invoiceService.updateInvoice(paidInvoice)
             } else {
-                failedInvoices.add(invoice)
+                failedTransactionInvoices.add(invoice)
             }
         } catch (customerNotFoundException: CustomerNotFoundException) {
             return
         } catch (currencyMismatchException: CurrencyMismatchException) {
             return
         } catch (networkException: NetworkException) {
-            failedInvoices.add(invoice)
+            failedNetworkInvoices.add(invoice)
         }
     }
 
